@@ -25,7 +25,7 @@ from aiogram import types
 
 
 API_TOKEN = "7636319540:AAHp8fslAIYuiB8JOMoizdt2D4BuQEcJatQ"
-ADMIN_ID = 5723901295
+ADMIN_ID = 6204272431
 
 bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 storage = MemoryStorage()
@@ -659,30 +659,35 @@ async def process_address(message: Message, state: FSMContext):
 async def process_shape(callback_query: types.CallbackQuery, state: FSMContext):
     shape = callback_query.data.split("_")[1]
     await state.update_data(shape=shape)
-    
+
     dir_names = list(directions.keys())
-    buttons = []
+    keyboard = []
     for i in range(0, len(dir_names), 2):
         row = []
         if i < len(dir_names):
-            row.append(InlineKeyboardButton(text=dir_names[i], callback_data=f"dir_{dir_names[i]}"))
+            row.append(KeyboardButton(text=dir_names[i]))
         if i+1 < len(dir_names):
-            row.append(InlineKeyboardButton(text=dir_names[i+1], callback_data=f"dir_{dir_names[i+1]}"))
-        buttons.append(row)
-    
-    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback_query.message.edit_text("🎯 Ta'lim yo'nalishini tanlang:", reply_markup=markup)
+            row.append(KeyboardButton(text=dir_names[i+1]))
+        keyboard.append(row)
+
+    reply_markup = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+    await callback_query.message.answer("🎯 Ta'lim yo'nalishini tanlang:", reply_markup=reply_markup)
     await state.set_state(Form.direction)
 
-@router.callback_query(lambda c: c.data.startswith("dir_"), StateFilter(Form.direction))
-async def process_direction(callback_query: types.CallbackQuery, state: FSMContext):
-    direction = callback_query.data.split("_")[1]
+@router.message(StateFilter(Form.direction))
+async def process_direction_text(message: Message, state: FSMContext):
+    direction = message.text.strip()
+    if direction not in directions:
+        await message.answer("❌ Noto‘g‘ri yo‘nalish tanlandi. Iltimos, tugmalardan birini tanlang.")
+        return
+
     data = await state.get_data()
     shape = data.get("shape", "")
     price = directions.get(direction, {}).get(shape, "0")
-    
+
     await state.update_data(direction=direction)
-    await callback_query.message.edit_text(
+    await message.answer(
         f"✅ Tanlangan yo'nalish: <b>{direction}</b>\n"
         f"📊 Ta'lim shakli: <b>{shape}</b>\n"
         f"💵 To'lov miqdori: <b>{price} so'm</b>\n\n"
